@@ -1,0 +1,46 @@
+{
+    "name": "litepubl/events",
+    "type": "library",
+    "version": "7.08.0",
+    "description": "eventslication main class with factory and configuration",
+    "keywords": [
+        "eventslication",
+"Factory",
+"Configuration"
+    ],
+    "homepage": "https:\/\/github.com\/litepubl\/storage",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Vladimir Yushko",
+            "email": "yarrowsoft@gmail.com",
+            "homepage": "http://litepublisher.ru/",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "email": "yarrowsoft@gmail.com",
+        "source": "https://github.com/litepubl/events/releases",
+        "doc": "https://github.com/litepubl/events/releases"
+    },
+    "require": {
+        "php": ">=7.00.0",
+        "litepubl/logmanager": "^7.08",
+        "litepubl/logfactory": "^7.08",
+        "litepubl/storage": "^7.08",
+        "litepubl/mailer": "^7.08"
+    },
+    "require-dev": {
+        "codeception/codeception" : "^2.2.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "litepubl\\core\\events\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "litepubl\\tests\\events\\": "tests/unit/"
+        }
+    }
+}
