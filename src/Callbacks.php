@@ -2,27 +2,34 @@
 
 namespace litepubl\core\events;
 
-trait Callbacks
+class Callbacks
 {
-    private $callbacks = [];
+    protected $items = [];
+    protected $target;
 
-    public function addCallback(string $eventName, callable $callback, int $priority = 500): int
+    public function __construct($target)
     {
-        if (!isset($this->callbacks[$eventName])) {
-                $this->callbacks[$eventName][$priority] = $callback;
+        $this->target = $target;
+        $this->items = [];
+    }
+
+    public function add(string $eventName, callable $callback, int $priority = 500): int
+    {
+        if (!isset($this->items[$eventName])) {
+                $this->items[$eventName][$priority] = $callback;
         } else {
-                Arr::append($this->callbacks[$eventName], $priority, $callback);
+                Arr::append($this->items[$eventName], $priority, $callback);
         }
 
         return true;
     }
 
-    public function deleteCallback(string $event, callable $callback): bool
+    public function delete(string $event, callable $callback): bool
     {
-        if (isset($this->callbacks[$event])) {
-            foreach ($this->callbacks[$event] as $i => $item) {
+        if (isset($this->items[$event])) {
+            foreach ($this->items[$event] as $i => $item) {
                 if ($item == $callback) {
-                    unset($this->callbacks[$event][$i]);
+                    unset($this->items[$event][$i]);
                     return true;
                 }
             }
@@ -31,22 +38,22 @@ trait Callbacks
         return false;
     }
 
-    public function clearCallbacks(string $event): bool
+    public function clear(string $event): bool
     {
-        if (isset($this->callbacks[$event])) {
-                unset($this->callbacks[$event]);
+        if (isset($this->items[$event])) {
+                unset($this->items[$event]);
                 return true;
         }
 
         return false;
     }
 
-    public function getCallbacksCount(string $event): int
+    public function getCount(string $event): int
     {
-        return isset($this->callbacks[$event]) ? count($this->callbacks[$event]) : 0;
+        return isset($this->items[$event]) ? count($this->items[$event]) : 0;
     }
 
-    public function triggerCallback($event, $params = []): array
+    public function trigger($event, $params = []): array
     {
         if (is_object($event)) {
                 $eventName = $event->getName();
@@ -54,16 +61,16 @@ trait Callbacks
                 $eventName = $event;
         }
 
-        if (!$this->getCallbacksCount($eventName)) {
+        if (!$this->getCount($eventName)) {
                 return $params;
         }
 
         if (is_string($event)) {
-            $event = new Event($this, $eventName);
+            $event = new Event($this->target, $eventName);
         }
 
                 $event->setParams($params);
-        foreach ($this->callbacks[$eventName] as $i => $callback) {
+        foreach ($this->items[$eventName] as $i => $callback) {
             if ($event->isPropagationStopped()) {
                 break;
             }
@@ -72,7 +79,7 @@ trait Callbacks
                         call_user_func_array($callback, [$event]);
                 if ($event->once) {
                     $event->once = false;
-                    unset($this->callbacks[$eventName][$i]);
+                    unset($this->items[$eventName][$i]);
                 }
             } catch (\Exception $e) {
                 $this->getApp()->logException($e);

@@ -1,23 +1,20 @@
 <?php
 namespace litepubl\core\events;
 
-trait EventsTrait
+class Events
 {
-    use Callbacks;
+protected $items;
+    protected $names = [];
+protected $callbacks;
+protected $container;
 
-    protected $eventnames = [];
-    protected $events;
-
-    protected function createData()
-    {
-        parent::createData();
-
-        if ($this instanceof Events) {
-                $this->addMap('events', []);
-        } else {
-                $this->data['events'] = [];
-        }
-    }
+public function __construct($container, $target)
+{
+$this->items = [];
+$this->names = [];
+$this->container = $container;
+$this->target = $target;
+}
 
     protected function getProp(string $name)
     {
@@ -31,7 +28,7 @@ trait EventsTrait
     protected function setProp(string $name, $value)
     {
         $eventName = strtolower($name);
-        if (in_array($eventName, $this->eventnames)) {
+        if (in_array($eventName, $this->names)) {
             $this->addEvent($eventName, $value);
         } else {
             parent::setProp($name, $value);
@@ -41,7 +38,7 @@ trait EventsTrait
     public function __call($name, $params)
     {
         $eventName = strtolower($name);
-        if (in_array($eventName, $this->eventnames)) {
+        if (in_array($eventName, $this->names)) {
             return $this->callEvent($eventName, $params[0]);
         }
 
@@ -50,32 +47,32 @@ trait EventsTrait
 
     public function __isset($name)
     {
-        return parent::__isset($name) || in_array($name, $this->eventnames);
+        return parent::__isset($name) || in_array($name, $this->names);
     }
 
-    public function eventExists(string $name): bool
+    public function has(string $name): bool
     {
-        return in_array(strtolower($name), $this->eventnames);
+        return in_array(strtolower($name), $this->names);
     }
 
     public function method_exists($name)
     {
-        return in_array(strtolower($name), $this->eventnames);
+        return in_array(strtolower($name), $this->names);
     }
 
     protected function addEvents()
     {
         $a = func_get_args();
         foreach ($a as $name) {
-                $this->eventnames[] = strtolower($name);
+                $this->names[] = strtolower($name);
         }
     }
 
     protected function reIndexEvents()
     {
-        foreach ($this->data['events'] as $name => $events) {
+        foreach ($this->items as $name => $events) {
             if (!count($events)) {
-                unset($this->data['events'][$name]);
+                unset($this->items[$name]);
             } else {
                 ksort($events);
                 $sorted = [];
@@ -90,30 +87,31 @@ trait EventsTrait
                     $sorted[$newIndex] = $item;
                 }
 
-                $this->data['events'][$name] = $sorted;
+                $this->items[$name] = $sorted;
             }
         }
     }
 
-    public function getEventCount(string $name): int
+    public function getCount(string $name): int
     {
-        return isset($this->data['events'][$name]) ? count($this->data['events'][$name]) : 0;
+$name = strtolower($name);
+        return isset($this->items[$name]) ? count($this->items[$name]) : 0;
     }
 
     public function newEvent(string $name): Event
     {
-        return new Event($this, $name);
+        return new Event($this->target, $name);
     }
 
-    public function callEvent(string $name, array $params): array
+    public function call(string $name, array $params): array
     {
         $name = strtolower($name);
-        if (!$this->getEventCount($name) && !$this->getCallbacksCount($name)) {
+        if (!$this->getCount($name) && !$this->getCallbacksCount($name)) {
             return $params;
         }
 
         $event = $this->newEvent($name);
-        $params = $this->triggerCallback($event, $params);
+        $params = $this->callbacks->trigger($event, $params);
         $event->setParams($params);
         $this->trigger($event);
         return $event->getParams();
@@ -121,34 +119,33 @@ trait EventsTrait
 
     protected function trigger(Event $event)
     {
-        $app = $this->getApp();
         $eventName = $event->getName();
 
-        foreach ($this->data['events'][$eventName] as $i => $item) {
+        foreach ($this->items[$eventName] as $i => $item) {
             if ($event->isPropagationStopped()) {
                         break;
             }
 
             if (class_exists($item[0])) {
                 try {
-                    $callback = [$app->classes->getInstance($item[0]), $item[1]];
+                    $callback = [$this->container->get($item[0]), $item[1]];
                     call_user_func_array($callback, [$event]);
                     if ($event->once) {
                                         $event->once = false;
-                                        unset($this->data['events'][$eventName][$i]);
+                                        unset($this->items[$eventName][$i]);
                                         $this->save();
                     }
                 } catch (\Throwable $e) {
-                    $app->logException($e);
+                    $this->container->get(LogManagerInterface::class)->logException($e);
                 }
             } else {
-                        unset($this->data['events'][$eventName][$i]);
-                if (!count($this->data['events'][$eventName])) {
-                    unset($this->data['events'][$eventName]);
+                        unset($this->items[$eventName][$i]);
+                if (!count($this->items[$eventName])) {
+                    unset($this->items[$eventName]);
                 }
 
                         $this->save();
-                        $app->getLogger()->warning(sprintf('Event subscriber has been removed from %s:%s', get_class($this), $eventName), is_array($item) ? $item : []);
+                        $app->getLogger()->warning(sprintf('Event subscriber has been removed from %s:%s', get_class($this->target), $eventName), is_array($item) ? $item : []);
             }
         }
     }
@@ -156,7 +153,7 @@ trait EventsTrait
     public function addEvent(string $name, $callable, $method = null)
     {
         $name = strtolower($name);
-        if (!in_array($name, $this->eventnames)) {
+        if (!in_array($name, $this->names)) {
             $this->error(sprintf('No such %s event', $name));
         }
 
@@ -175,18 +172,18 @@ trait EventsTrait
                 return $this->addCallback($name, $callable);
         }
 
-        if (!isset($this->data['events'][$name])) {
-            $this->data['events'][$name] = [500 => $callable];
+        if (!isset($this->items[$name])) {
+            $this->items[$name] = [500 => $callable];
             $this->save();
         } else {
             //check if event already added
-            foreach ($this->data['events'][$name] as $item) {
+            foreach ($this->items[$name] as $item) {
                 if ($callable == $item) {
                     return false;
                 }
             }
 
-            Arr::append($this->data['events'][$name], 500, $callable);
+            Arr::append($this->items[$name], 500, $callable);
             $this->save();
         }
     }
@@ -194,11 +191,11 @@ trait EventsTrait
     public function detach(string $name, callable $callback): bool
     {
         $name = strtolower($name);
-        $this->deleteCallback($name, $callback);
-        if (isset($this->data['events'][$name])) {
-            foreach ($this->data['events'][$name] as $i => $item) {
+        $this->callbacks->delete($name, $callback);
+        if (isset($this->items[$name])) {
+            foreach ($this->items[$name] as $i => $item) {
                 if ($item == $callback) {
-                    unset($this->data['events'][$name][$i]);
+                    unset($this->items[$name][$i]);
                     $this->reIndexEvents();
                     $this->save();
                     return true;
@@ -212,10 +209,10 @@ trait EventsTrait
     public function unbind($c)
     {
         $class = static ::getClassName($c);
-        foreach ($this->data['events'] as $name => $events) {
+        foreach ($this->items as $name => $events) {
             foreach ($events as $i => $item) {
                 if ($class == $item[0]) {
-                    unset($this->data['events'][$name][$i]);
+                    unset($this->items[$name][$i]);
                 }
             }
         }
