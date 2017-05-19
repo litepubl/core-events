@@ -3,10 +3,11 @@ namespace litepubl\core\events;
 
 class Events
 {
-protected $items;
-    protected $names = [];
 protected $callbacks;
 protected $container;
+protected $items;
+    protected $names;
+protected $target;
 
 public function __construct($container, $target)
 {
@@ -169,7 +170,7 @@ $name = strtolower($name);
         }
 
         if (!is_array($callable) || !is_string($callable[0])) {
-                return $this->addCallback($name, $callable);
+                return $this->callbacks->add($name, $callable);
         }
 
         if (!isset($this->items[$name])) {
@@ -190,8 +191,9 @@ $name = strtolower($name);
 
     public function detach(string $name, callable $callback): bool
     {
+        $this->callbacks->detach($name, $callback);
+
         $name = strtolower($name);
-        $this->callbacks->delete($name, $callback);
         if (isset($this->items[$name])) {
             foreach ($this->items[$name] as $i => $item) {
                 if ($item == $callback) {

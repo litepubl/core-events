@@ -24,7 +24,7 @@ class Callbacks
         return true;
     }
 
-    public function delete(string $event, callable $callback): bool
+    public function detach(string $event, callable $callback): bool
     {
         if (isset($this->items[$event])) {
             foreach ($this->items[$event] as $i => $item) {
