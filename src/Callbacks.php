@@ -2,34 +2,50 @@
 
 namespace litepubl\core\events;
 
-use litepubl\core\logmanager\FactoryInterface as LogFactory;
+use Psr\Container\ContainerInterface;
+use litepubl\core\logmanager\LogManagerInterface;
 
 class Callbacks implements EventManagerInterface
 {
+    protected $container;
     protected $items;
-    protected $target;
-    protected $logFactory;
 
-    public function __construct($target, LogFactory $logFactory)
+    public function __construct(ContainerInterface $container)
     {
-        $this->target = $target;
-        $this->logFactory = $logFactory;
+        $this->container = $container;
         $this->items = [];
+    }
+
+    protected function canAttach(string $event, callable $calback): bool
+    {
+        return !(is_array($callback) && is_string($callback[0]));
     }
 
     public function attach(string $event, callable $callback, int $priority = 0): bool
     {
-        if (is_array($callback) && is_string($callback[0])) {
+        $event = strtolower($event);
+        if (!$this->canAttach($event, $callback)) {
                 return false;
         }
 
         if (!isset($this->items[$event])) {
                 $this->items[$event][$priority] = $callback;
         } else {
+            foreach ($this->items[$event] as $item) {
+                if ($callback == $item) {
+                    return false;
+                }
+            }
+
                 Arr::append($this->items[$event], $priority, $callback);
         }
 
         return true;
+    }
+
+    protected function removeItem(string $event, int $index)
+    {
+                    unset($this->items[$event][$i]);
     }
 
     public function detach(string $event, callable $callback): bool
@@ -37,7 +53,7 @@ class Callbacks implements EventManagerInterface
         if (isset($this->items[$event])) {
             foreach ($this->items[$event] as $i => $item) {
                 if ($item == $callback) {
-                    unset($this->items[$event][$i]);
+                    $this->removeItem($event, $i);
                     return true;
                 }
             }
@@ -61,6 +77,17 @@ class Callbacks implements EventManagerInterface
         return isset($this->items[$event]) && count($this->items[$event]);
     }
 
+//return \Iterable
+    protected function getListeners(string $event)
+    {
+        return $this->items[$event];
+    }
+
+    protected function newEvent(string $event, $target, array $params): Event
+    {
+        return new Event($event, $target, $params);
+    }
+
     public function trigger($event, $target = null, $argv = [])
     {
         if (is_string($event)) {
@@ -69,19 +96,17 @@ class Callbacks implements EventManagerInterface
         } elseif (is_object($event) && ($event instanceof EventInterface)) {
                 $eventName = $event->getname();
                 $eventInstance = $event;
-                $eventInstance->setParams($params);
         } else {
                 throw new TriggerException('Event must be  instance of EventInterface or string');
         }
 
         if ($this->hasListeners($eventName)) {
             if (!$eventInstance) {
-                $eventInstance = new Event($eventName, $target, $params);
-            } else {
-                        $eventInstance->setParams($params);
+                $eventInstance = $this->newEvent($eventName, $target, $params);
             }
 
-            foreach ($this->items[$eventName] as $i => $callback) {
+            $items = $this->getListeners($eventName);
+            foreach ($items as $i => $callback) {
                 if ($event->isPropagationStopped()) {
                     break;
                 }
@@ -90,10 +115,11 @@ class Callbacks implements EventManagerInterface
                         $callback($eventInstance);
                     if ($eventInstance->isListenerToRemove()) {
                         $eventInstance->setListenerToRemove(false);
-                        unset($this->items[$eventName][$i]);
+                        $this->removeItem($eventName, $i);
                     }
                 } catch (\Throwable $e) {
-                    $this->logFactory->getLogManager()->logException($e, [
+                    $this->removeItem($eventName, $i);
+                    $this->container->get(logManagerInterface::class)->logException($e, [
                     'callback' => $callback,
                     'event' => $eventInstance,
                     ]);

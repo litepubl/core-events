@@ -60,7 +60,6 @@ class Composite implements EventManagerInterface
         } elseif (is_object($event) && ($event instanceof EventInterface)) {
                 $eventName = $event->getname();
                 $eventInstance = $event;
-                $eventInstance->setParams($params);
         } else {
                 throw new TriggerException('Event must be  instance of EventInterface or string');
         }
