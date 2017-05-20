@@ -2,23 +2,31 @@
 
 namespace litepubl\core\events;
 
-class Callbacks
-{
-    protected $items = [];
-    protected $target;
+use litepubl\core\logmanager\FactoryInterface as LogFactory;
 
-    public function __construct($target)
+class Callbacks implements EventManagerInterface
+{
+    protected $items;
+    protected $target;
+    protected $logFactory;
+
+    public function __construct($target, LogFactory $logFactory)
     {
         $this->target = $target;
+        $this->logFactory = $logFactory;
         $this->items = [];
     }
 
-    public function add(string $eventName, callable $callback, int $priority = 500): int
+    public function attach(string $event, callable $callback, int $priority = 0): bool
     {
-        if (!isset($this->items[$eventName])) {
-                $this->items[$eventName][$priority] = $callback;
+        if (is_array($callback) && is_string($callback[0])) {
+                return false;
+        }
+
+        if (!isset($this->items[$event])) {
+                $this->items[$event][$priority] = $callback;
         } else {
-                Arr::append($this->items[$eventName], $priority, $callback);
+                Arr::append($this->items[$event], $priority, $callback);
         }
 
         return true;
@@ -38,7 +46,7 @@ class Callbacks
         return false;
     }
 
-    public function clear(string $event): bool
+    public function clearListeners(string $event)
     {
         if (isset($this->items[$event])) {
                 unset($this->items[$event]);
@@ -48,44 +56,51 @@ class Callbacks
         return false;
     }
 
-    public function getCount(string $event): int
+    public function hasListeners(string $event): bool
     {
-        return isset($this->items[$event]) ? count($this->items[$event]) : 0;
+        return isset($this->items[$event]) && count($this->items[$event]);
     }
 
-    public function trigger($event, $params = []): array
+    public function trigger($event, $target = null, $argv = [])
     {
-        if (is_object($event)) {
-                $eventName = $event->getName();
-        } else {
-                $eventName = $event;
-        }
-
-        if (!$this->getCount($eventName)) {
-                return $params;
-        }
-
         if (is_string($event)) {
-            $event = new Event($this->target, $eventName);
+                $eventName = $event;
+                $eventInstance = null;
+        } elseif (is_object($event) && ($event instanceof EventInterface)) {
+                $eventName = $event->getname();
+                $eventInstance = $event;
+                $eventInstance->setParams($params);
+        } else {
+                throw new TriggerException('Event must be  instance of EventInterface or string');
         }
 
-                $event->setParams($params);
-        foreach ($this->items[$eventName] as $i => $callback) {
-            if ($event->isPropagationStopped()) {
-                break;
+        if ($this->hasListeners($eventName)) {
+            if (!$eventInstance) {
+                $eventInstance = new Event($eventName, $target, $params);
+            } else {
+                        $eventInstance->setParams($params);
             }
 
-            try {
-                        call_user_func_array($callback, [$event]);
-                if ($event->once) {
-                    $event->once = false;
-                    unset($this->items[$eventName][$i]);
+            foreach ($this->items[$eventName] as $i => $callback) {
+                if ($event->isPropagationStopped()) {
+                    break;
                 }
-            } catch (\Exception $e) {
-                $this->getApp()->logException($e);
+
+                try {
+                        $callback($eventInstance);
+                    if ($eventInstance->isListenerToRemove()) {
+                        $eventInstance->setListenerToRemove(false);
+                        unset($this->items[$eventName][$i]);
+                    }
+                } catch (\Throwable $e) {
+                    $this->logFactory->getLogManager()->logException($e, [
+                    'callback' => $callback,
+                    'event' => $eventInstance,
+                    ]);
+                }
             }
         }
 
-        return $event->getParams();
+        return $eventInstance ? $eventInstance->getParams() : $params;
     }
 }

@@ -8,15 +8,15 @@ class Event
     protected $target;
     protected $stopped;
     protected $params;
-    public $once;
+    protected $listenerToRemove;
 
-    public function __construct($target, string $name)
+    public function __construct(string $name, $target, array $params)
     {
-        $this->target = $target;
         $this->name = $name;
+        $this->target = $target;
+        $this->params = $params;
         $this->stopped = false;
-        $this->params = [];
-        $this->once = false;
+        $this->listenerToRemove = false;
     }
 
     public function __get($name)
@@ -113,5 +113,15 @@ class Event
     public function isPropagationStopped(): bool
     {
         return $this->stopped;
+    }
+
+    public function setListenerToRemove(bool $flag)
+    {
+        $this->listenerToRemove = $flag;
+    }
+
+    public function isListenerToRemove(): bool
+    {
+        return $this->listenerToRemove;
     }
 }

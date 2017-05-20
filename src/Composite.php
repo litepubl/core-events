@@ -12,24 +12,26 @@ class Composite implements EventManagerInterface
     }
     public function attach(string $event, callable $callback, int $priority = 0): bool
     {
+        $result = false;
         foreach ($this->items as $item) {
             if ($item->attach($event, $callback, $priority)) {
-                return true;
+                $result = true;
             }
         }
 
-        return false;
+        return $result;
     }
 
     public function detach(string $event, callable $callback): bool
     {
+        $result = false;
         foreach ($this->items as $item) {
             if ($item->detach($event, $callback)) {
-                return true;
+                $result = true;
             }
         }
 
-        return false;
+        return $result;
     }
 
     public function clearListeners(string $event)
@@ -37,6 +39,17 @@ class Composite implements EventManagerInterface
         foreach ($this->items as $item) {
                 $item->clearListeners($event);
         }
+    }
+
+    public function hasListeners(string $event): bool
+    {
+        foreach ($this->items as $item) {
+            if ($item->hasListeners($event)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function trigger($event, $target = null, $argv = [])
@@ -49,7 +62,7 @@ class Composite implements EventManagerInterface
                 $eventInstance = $event;
                 $eventInstance->setParams($params);
         } else {
-                throw new Exception();
+                throw new TriggerException('Event must be  instance of EventInterface or string');
         }
 
         foreach ($this->items as $item) {

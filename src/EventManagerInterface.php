@@ -34,7 +34,6 @@ interface EventManagerInterface
      * @return void
      */
     public function clearListeners(string $event);
-    public function hasListeners(string $event): bool;
 
     /**
      * Trigger an event
@@ -47,4 +46,9 @@ interface EventManagerInterface
      * @return mixed
      */
     public function trigger($event, $target = null, $argv = []);
+
+/**
+* Additional methods
+*/
+    public function hasListeners(string $event): bool;
 }

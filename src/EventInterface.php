@@ -74,4 +74,10 @@ interface EventInterface
      * @return bool
      */
     public function isPropagationStopped(): bool;
+
+/**
+* Additional methods
+*/
+    public function setListenerToRemove(bool $flag);
+    public function isListenerToRemove(): bool;
 }
