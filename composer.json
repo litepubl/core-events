@@ -4,7 +4,7 @@
     "version": "7.08.0",
     "description": "eventslication main class with factory and configuration",
     "keywords": [
-        "eventslication",
+        "Events",
 "Factory",
 "Configuration"
     ],
@@ -25,10 +25,9 @@
     },
     "require": {
         "php": ">=7.00.0",
+        "psr/container": "^1.0",
         "litepubl/logmanager": "^7.08",
-        "litepubl/logfactory": "^7.08",
-        "litepubl/storage": "^7.08",
-        "litepubl/mailer": "^7.08"
+        "litepubl/storage": "^7.08"
     },
     "require-dev": {
         "codeception/codeception" : "^2.2.7"

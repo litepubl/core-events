@@ -10,6 +10,12 @@ class Composite implements EventManagerInterface
     {
         $this->items = $items;
     }
+
+    public function add(EventManagerInterface $eventManager)
+    {
+        $this->items[] = $eventManager;
+    }
+
     public function attach(string $event, callable $callback, int $priority = 0): bool
     {
         $result = false;
