@@ -3,9 +3,8 @@ namespace litepubl\core\events;
 
 use Psr\Container\ContainerInterface;
 use litepubl\core\logmanager\LogManagerInterface;
-use litepubl\core\storage\Storable;
 
-class EventManager extends Callbacks implements Storable
+class EventManager extends Callbacks
 {
     protected $names;
 
@@ -64,20 +63,5 @@ class EventManager extends Callbacks implements Storable
                         ]);
             }
         }
-    }
-
-    public function getBaseName(): string
-    {
-        return 'events';
-    }
-
-    public function getData(): array
-    {
-        return $this->items;
-    }
-
-    public function setData(array $data): void
-    {
-        $this->items = $data;
     }
 }
